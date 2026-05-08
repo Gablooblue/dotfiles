@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+
+# SketchyBar — macOS-native style with AeroSpace workspace integration
+
+FONT="Hack Nerd Font"
+FONT_SIZE=13
+PLUGIN_DIR="$HOME/.config/sketchybar/plugins"
+
+# macOS-matching color scheme
+BAR_COLOR=0xcc1e1e1e
+ACCENT_COLOR=0xff007aff    # macOS blue
+TEXT_COLOR=0xffe0e0e0
+DIM_COLOR=0xff808080
+
+# Bar configuration — translucent, blurred, macOS-style
+sketchybar --bar \
+  height=28 \
+  position=top \
+  color=$BAR_COLOR \
+  shadow=off \
+  sticky=on \
+  padding_left=4 \
+  padding_right=8 \
+  y_offset=0 \
+  margin=0 \
+  blur_radius=30 \
+  notch_width=0 \
+  topmost=off
+
+# Default item settings
+sketchybar --default \
+  label.font="$FONT:Medium:$FONT_SIZE" \
+  icon.font="$FONT:Medium:$FONT_SIZE" \
+  label.color=$TEXT_COLOR \
+  icon.color=$TEXT_COLOR \
+  padding_left=2 \
+  padding_right=2 \
+  background.height=22 \
+  background.corner_radius=6 \
+  background.border_width=0
+
+# --- AeroSpace workspace indicators ---
+sketchybar --add event aerospace_workspace_change
+sketchybar --add event aerospace_focus_change
+
+FOCUSED_WS=$(aerospace list-workspaces --focused 2>/dev/null || echo "1")
+
+# Workspace icons (Nerd Font)
+declare -A WS_ICONS
+WS_ICONS[1]="󰒱"   # Slack
+WS_ICONS[2]="󰖟"   # Browser
+WS_ICONS[3]="󰆍"   # Terminal
+WS_ICONS[4]="󰅴"   # Code
+WS_ICONS[5]="󰓥"   # Conductor
+WS_ICONS[6]="󰚩"   # Claude
+WS_ICONS[7]="󰆼"   # Database
+WS_ICONS[8]="󰕧"   # Zoom
+WS_ICONS[9]=""
+WS_ICONS[10]="󰓇"  # Spotify
+
+for i in 1 2 3 4 5 6 7 8 9 10; do
+  ICON="${WS_ICONS[$i]}"
+
+  if [ "$i" = "$FOCUSED_WS" ]; then
+    BG=$ACCENT_COLOR
+    FG=0xffffffff
+  else
+    BG=0x00000000
+    FG=$DIM_COLOR
+  fi
+
+  sketchybar --add item space.$i left \
+    --set space.$i \
+      icon="$i" \
+      label="$ICON" \
+      label.drawing=$([ -n "$ICON" ] && echo "on" || echo "off") \
+      icon.padding_left=8 \
+      icon.padding_right=0 \
+      label.padding_left=4 \
+      label.padding_right=8 \
+      label.color=$FG \
+      icon.color=$FG \
+      background.color=$BG \
+      background.drawing=on \
+      background.corner_radius=6 \
+      click_script="aerospace workspace $i" \
+      script="$PLUGIN_DIR/aerospace.sh" \
+    --subscribe space.$i aerospace_workspace_change
+done
+
+# Focused window title
+sketchybar --add item window_title left \
+  --set window_title \
+    icon="" \
+    label.color=$DIM_COLOR \
+    label.padding_left=8 \
+    background.drawing=off \
+    script="$PLUGIN_DIR/window_title.sh" \
+  --subscribe window_title front_app_switched aerospace_workspace_change
+
+# --- Right side ---
+
+# Meeting + Granola detector (checks every 10s)
+sketchybar --add item meeting right \
+  --set meeting \
+    update_freq=10 \
+    script="$PLUGIN_DIR/meeting.sh" \
+    background.drawing=off \
+    icon.padding_left=8 \
+    label.padding_right=8 \
+    drawing=off
+
+# Spotify now playing (checks every 5s)
+sketchybar --add item spotify right \
+  --set spotify \
+    update_freq=5 \
+    script="$PLUGIN_DIR/spotify.sh" \
+    background.drawing=off \
+    icon.padding_left=8 \
+    icon.color=$DIM_COLOR \
+    label.color=$DIM_COLOR \
+    label.padding_right=8 \
+    drawing=off
+
+# Finalize
+sketchybar --update
